@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:progress_bar_countdown/progress_bar_countdown.dart';
+
+
+
 
 class WebViewWithLoader extends StatefulWidget {
   @override
@@ -7,35 +11,9 @@ class WebViewWithLoader extends StatefulWidget {
 }
 
 class _WebViewWithLoaderState extends State<WebViewWithLoader> {
-  late final WebViewController webViewController; // Контроллер WebView
-  bool isLoading = true; // Флаг для отображения лоадера
-
-  @override
-  void initState() {
-    super.initState();
-    // Инициализация WebViewController
-    webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted) // Включение JavaScript
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (url) {
-            setState(() {
-              isLoading = true; // Показывать лоадер при начале загрузки
-            });
-          },
-          onPageFinished: (url) {
-            setState(() {
-              isLoading = false; // Убрать лоадер после завершения загрузки
-            });
-          },
-          onWebResourceError: (error) {
-            // Обработка ошибок загрузки
-            print("Error loading page: ${error.description}");
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse("https://mixgame.fruitmixer.click/3nT6vV")); // URL для загрузки
-  }
+  late InAppWebViewController webViewController;
+  bool isLoading = true; // Показывать лоадер пока страница загружается
+  double progress = 0.0;
 
   @override
   Widget build(BuildContext context) {
@@ -43,9 +21,22 @@ class _WebViewWithLoaderState extends State<WebViewWithLoader> {
       backgroundColor: Colors.blue, // Фон экрана
       body: Stack(
         children: [
-          // WebView
-          WebViewWidget(controller: webViewController),
-          // Лоадер
+          InAppWebView(
+            initialUrlRequest: URLRequest(
+              url: WebUri("https://mixgame.fruitmixer.click/3nT6vV"), // URL для загрузки
+            ),
+            onWebViewCreated: (controller) {
+              webViewController = controller;
+            },
+            onProgressChanged: (controller, progressValue) {
+              setState(() {
+                progress = progressValue / 100;
+                if (progress == 1.0) {
+                  isLoading = false; // Убираем лоадер, когда страница загружена
+                }
+              });
+            },
+          ),
           if (isLoading)
             Center(
               child: Column(
@@ -56,8 +47,40 @@ class _WebViewWithLoaderState extends State<WebViewWithLoader> {
                     style: TextStyle(color: Colors.white, fontSize: 18),
                   ),
                   const SizedBox(height: 20),
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ProgressBarCountdown(
+                      initialDuration: Duration(seconds: 60),
+                      progressColor: Colors.blue,
+                      progressBackgroundColor: Colors.grey[300]!,
+                      initialTextColor: Colors.black,
+                      revealedTextColor: Colors.white,
+                      height: 40,
+                      textStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      countdownDirection: ProgressBarCountdownAlignment.left,
+                      controller: ProgressBarCountdownController(),
+                      autoStart: true,
+                      onComplete: () {
+                        print('Countdown Completed');
+                      },
+                      onStart: () {
+                        print('Countdown Started');
+                      },
+                      onChange: (String timeStamp) {
+                        print('Countdown Changed $timeStamp');
+                      },
+                      timeFormatter: (Duration remainingTime) {
+                        final minutes = remainingTime.inMinutes
+                            .remainder(60)
+                            .toString()
+                            .padLeft(2, '0');
+                        final seconds = remainingTime.inSeconds
+                            .remainder(60)
+                            .toString()
+                            .padLeft(2, '0');
+                        final milliseconds = (remainingTime.inMilliseconds % 1000 ~/ 10)
+                            .toString()
+                            .padLeft(2, '0');
+                        return '$minutes:$seconds:$milliseconds';
+                      }
                   ),
                 ],
               ),
